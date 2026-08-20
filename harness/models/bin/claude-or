@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+# claude-or — run Claude Code against an OpenRouter model.
+#
+# Usage:
+#   claude-or                          # default model: z-ai/glm-5.3
+#   claude-or <openrouter-model>       # e.g. google/gemini-3.7-flash
+#   claude-or <model> [claude args...] # e.g. claude-or z-ai/glm-5.3 --continue
+#   claude-or [claude args...]         # leading flags keep the default model
+#
+# All requests in this session route through OpenRouter and bill OpenRouter
+# credits, not the Anthropic subscription. Switch models mid-session with:
+#   /model <openrouter-model-id>
+set -euo pipefail
+
+if [ $# -gt 0 ] && [[ "$1" != -* ]]; then
+    MODEL="$1"
+    shift
+else
+    MODEL="z-ai/glm-5.3"
+fi
+
+: "${OPENROUTER_API_KEY:?OPENROUTER_API_KEY is not set — add it to ~/.zshrc}"
+
+export ANTHROPIC_BASE_URL="https://openrouter.ai/api"
+export ANTHROPIC_AUTH_TOKEN="$OPENROUTER_API_KEY"
+export ANTHROPIC_API_KEY=""
+# Map Claude model aliases (used by agent frontmatter) to OpenRouter IDs so
+# subagents with model: sonnet/opus/haiku resolve on OpenRouter too.
+export ANTHROPIC_DEFAULT_SONNET_MODEL="~anthropic/claude-sonnet-latest"
+export ANTHROPIC_DEFAULT_OPUS_MODEL="~anthropic/claude-opus-latest"
+export ANTHROPIC_DEFAULT_HAIKU_MODEL="~anthropic/claude-haiku-latest"
+
+exec claude --model "$MODEL" "$@"

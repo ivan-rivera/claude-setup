@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# claude-glm — Claude Code on z-ai/glm-5.3 via OpenRouter.
+# Extra args pass through to claude (e.g. claude-glm --continue).
+exec "$(dirname "$0")/claude-or" "z-ai/glm-5.3" "$@"

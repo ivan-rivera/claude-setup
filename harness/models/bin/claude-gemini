@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# claude-gemini — Claude Code on google/gemini-3.7-flash via OpenRouter.
+# Extra args pass through to claude (e.g. claude-gemini --continue).
+exec "$(dirname "$0")/claude-or" "google/gemini-3.7-flash" "$@"

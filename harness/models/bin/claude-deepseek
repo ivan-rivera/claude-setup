@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# claude-deepseek — Claude Code on deepseek/deepseek-v4-flash-0731 via OpenRouter.
+# Extra args pass through to claude (e.g. claude-deepseek --continue).
+exec "$(dirname "$0")/claude-or" "deepseek/deepseek-v4-flash-0731" "$@"
