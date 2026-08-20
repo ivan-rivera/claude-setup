@@ -6,11 +6,45 @@
 #   claude-or <openrouter-model>       # e.g. google/gemini-3.7-flash
 #   claude-or <model> [claude args...] # e.g. claude-or z-ai/glm-5.3 --continue
 #   claude-or [claude args...]         # leading flags keep the default model
+#   claude-or --via-proxy <model>      # force the stream-fix proxy (see below)
 #
 # All requests in this session route through OpenRouter and bill OpenRouter
 # credits, not the Anthropic subscription. Switch models mid-session with:
 #   /model <openrouter-model-id>
+#
+# Two load-bearing details:
+#
+# 1. The apiKeyHelper override. Without it Claude Code attaches the claude.ai
+#    managed key as x-api-key, and OpenRouter then treats the request as
+#    Anthropic BYOK (provider.only: anthropic), rejecting every non-Anthropic
+#    model with "No allowed providers are available". An empty helper output
+#    keeps x-api-key empty so the Authorization bearer (the OpenRouter key)
+#    does the routing.
+#
+# 2. Gemini models go through the or-stream-fix proxy. OpenRouter emits
+#    Gemini's thought signature as a trailing thinking block after the text
+#    block; Claude Code requires thinking-before-text and silently drops the
+#    response text. The proxy strips those signature-only blocks. Routed
+#    automatically when the model id contains "gemini"; --via-proxy forces it.
 set -euo pipefail
+
+PROXY_PORT=8791
+VIA_PROXY=0
+
+SELF="$0"
+if readlink -f "$0" >/dev/null 2>&1; then
+    SELF="$(readlink -f "$0")"   # resolve ~/.local/bin symlink to harness path
+fi
+PROXY_SCRIPT="$(cd "$(dirname "$SELF")/.." && pwd)/or-stream-fix.py"
+
+args=()
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --via-proxy) VIA_PROXY=1; shift ;;
+        *) args+=("$1"); shift ;;
+    esac
+done
+set -- "${args[@]}"
 
 if [ $# -gt 0 ] && [[ "$1" != -* ]]; then
     MODEL="$1"
@@ -19,9 +53,30 @@ else
     MODEL="z-ai/glm-5.3"
 fi
 
+if [[ "$MODEL" == *gemini* ]]; then VIA_PROXY=1; fi
+
 : "${OPENROUTER_API_KEY:?OPENROUTER_API_KEY is not set — add it to ~/.zshrc}"
 
-export ANTHROPIC_BASE_URL="https://openrouter.ai/api"
+if [ "$VIA_PROXY" = 1 ]; then
+    # Start the proxy if it isn't already listening.
+    if ! nc -z 127.0.0.1 "$PROXY_PORT" 2>/dev/null; then
+        nohup python3 "$PROXY_SCRIPT" "$PROXY_PORT" >/tmp/or-stream-fix.log 2>&1 &
+        disown 2>/dev/null || true
+        for _ in $(seq 1 30); do
+            nc -z 127.0.0.1 "$PROXY_PORT" 2>/dev/null && break
+            sleep 0.1
+        done
+    fi
+    if ! nc -z 127.0.0.1 "$PROXY_PORT" 2>/dev/null; then
+        echo "claude-or: or-stream-fix proxy failed to start on port $PROXY_PORT" >&2
+        echo "  script: $PROXY_SCRIPT" >&2
+        echo "  log:    /tmp/or-stream-fix.log" >&2
+        exit 1
+    fi
+    export ANTHROPIC_BASE_URL="http://127.0.0.1:${PROXY_PORT}/api"
+else
+    export ANTHROPIC_BASE_URL="https://openrouter.ai/api"
+fi
 export ANTHROPIC_AUTH_TOKEN="$OPENROUTER_API_KEY"
 export ANTHROPIC_API_KEY=""
 # Map Claude model aliases (used by agent frontmatter) to OpenRouter IDs so
@@ -30,4 +85,6 @@ export ANTHROPIC_DEFAULT_SONNET_MODEL="~anthropic/claude-sonnet-latest"
 export ANTHROPIC_DEFAULT_OPUS_MODEL="~anthropic/claude-opus-latest"
 export ANTHROPIC_DEFAULT_HAIKU_MODEL="~anthropic/claude-haiku-latest"
 
-exec claude --model "$MODEL" "$@"
+exec claude --model "$MODEL" \
+    --settings '{"apiKeyHelper": "true"}' \
+    "$@"

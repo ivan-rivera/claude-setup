@@ -35,6 +35,11 @@ Personal Claude Code harness for a solo full-stack developer exploring multiple 
 
 These route Claude Code through OpenRouter's Anthropic-compatible endpoint (`https://openrouter.ai/api`) and map the sonnet/opus/haiku aliases to `~anthropic/claude-*-latest` so subagents still resolve. Switch models mid-session with `/model <openrouter-id>`.
 
+Two compatibility fixes are baked into the launchers (both discovered via live testing):
+
+1. **Empty `x-api-key`** — Claude Code attaches the claude.ai managed key as `x-api-key` even with `ANTHROPIC_AUTH_TOKEN` set; OpenRouter reads that as an Anthropic BYOK credential and rejects every non-Anthropic model (`No allowed providers are available`). The launchers pass `--settings '{"apiKeyHelper": "true"}'` so the header stays empty and the bearer token does the routing.
+2. **Gemini stream rewrite** — with tools in the request (always, for Claude Code), OpenRouter emits Gemini's thought signature as a thinking block *after* the text block; Claude Code requires thinking-before-text and drops the response text entirely. `claude-gemini` (and any `claude-or <model>` whose ID contains `gemini`) routes through a local proxy (`harness/models/or-stream-fix.py`, port 8791, auto-started) that strips those signature-only blocks. Everything else passes through unbuffered.
+
 Model assignment history: `harness/models-changelog.md` (maintained by `/model-scout`).
 
 ## Prerequisites
@@ -78,16 +83,16 @@ Check with `just check-env`.
 | `just test` | Verify structure, linkage, settings, launchers, MCP |
 | `just check-env` | Verify required env vars |
 | `just mcp` | (Re)register user-scope MCP servers |
-| `just help` | List all targets |
+## Notes
+
+- **Why launchers instead of global env vars**: keeping `ANTHROPIC_BASE_URL` unset by default preserves the Anthropic subscription for daily driving; the launchers opt specific sessions into OpenRouter billing.
+- **Agent model mapping on OpenRouter**: `claude-or` maps `sonnet`/`opus`/`haiku` aliases to `~anthropic/claude-*-latest` on OpenRouter, so harness agents keep working in OpenRouter sessions.
+- **Gemini thought-signature tradeoff**: the stream-fix proxy drops Gemini's signature-only thinking blocks, so Gemini re-derives reasoning each turn instead of continuing across turns. No visible impact in testing; revisit if agentic quality degrades.
+- **Default session caveat**: the main `claude` command requires Anthropic credits/subscription on the account; the launchers use OpenRouter credits instead.
+- **Custom plugin ecosystem**: previously-enabled plugins and marketplaces live in `~/.claude/plugins/` and `~/.claude.json` — untouched by this harness. Re-enable or prune via `/plugin`.
 
 ## Updating
 
 From within this repo, run `/update` in Claude Code to check for new Claude Code releases and propose harness revisions.
 
 To update model assignments based on benchmarks, run `/model-scout` in any session.
-
-## Notes
-
-- **Why launchers instead of global env vars**: keeping `ANTHROPIC_BASE_URL` unset by default preserves the Anthropic subscription for daily driving; the launchers opt specific sessions into OpenRouter billing.
-- **Agent model mapping on OpenRouter**: `claude-or` maps `sonnet`/`opus`/`haiku` aliases to `~anthropic/claude-*-latest` on OpenRouter, so harness agents keep working in OpenRouter sessions.
-- **Custom plugin ecosystem**: previously-enabled plugins and marketplaces live in `~/.claude/plugins/` and `~/.claude.json` — untouched by this harness. Re-enable or prune via `/plugin`.

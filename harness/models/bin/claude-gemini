@@ -1,4 +1,13 @@
 #!/usr/bin/env bash
 # claude-gemini — Claude Code on google/gemini-3.7-flash via OpenRouter.
+#
+# Routes through the local or-stream-fix proxy: OpenRouter emits Gemini's
+# thought signature as a TRAILING thinking block (after the text block), which
+# Claude Code's parser rejects — every tool-bearing Gemini response would come
+# back empty. The proxy drops those signature-only blocks; everything else
+# passes through untouched. See harness/models/or-stream-fix.py.
+#
 # Extra args pass through to claude (e.g. claude-gemini --continue).
-exec "$(dirname "$0")/claude-or" "google/gemini-3.7-flash" "$@"
+set -euo pipefail
+
+exec "$(dirname "$0")/claude-or" --via-proxy google/gemini-3.7-flash "$@"

@@ -207,12 +207,9 @@ test:
 
     echo ""
     echo "=== Settings ==="
-    python3 - <<'EOF' && pass "settings.json valid, model pinned" || fail "settings.json invalid or model wrong"
-import json
-d = json.load(open("{{ harness_dir }}/settings.json"))
-assert d["model"] == "claude-sonnet-5", d.get("model")
-assert "advisorModel" in d and "fallbackModel" in d
-EOF
+    python3 -c 'import json; d = json.load(open("{{ harness_dir }}/settings.json")); assert d["model"] == "claude-sonnet-5", d.get("model"); assert "advisorModel" in d and "fallbackModel" in d' \
+        && pass "settings.json valid, model pinned" \
+        || fail "settings.json invalid or model wrong"
     grep -q 'bash-guard.sh' "{{ harness_dir }}/settings.json" && pass "bash-guard hook wired" || fail "bash-guard hook missing"
     [ -x "{{ harness_dir }}/hooks/bash-guard.sh" ] && pass "bash-guard executable" || fail "bash-guard not executable"
 
@@ -225,7 +222,11 @@ EOF
     grep -q 'openrouter.ai/api' "{{ harness_dir }}/models/bin/claude-or" && pass "OpenRouter base URL" || fail "OpenRouter base URL missing"
     grep -q 'z-ai/glm-5.3' "{{ harness_dir }}/models/bin/claude-glm" && pass "glm launcher model" || fail "glm launcher model missing"
     grep -q 'google/gemini-3.7-flash' "{{ harness_dir }}/models/bin/claude-gemini" && pass "gemini launcher model" || fail "gemini launcher model missing"
-    grep -q 'deepseek/deepseek-v4-flash-0731' "{{ harness_dir }}/models/bin/claude-deepseek" && pass "deepseek launcher model" || fail "deepseek launcher model missing"
+    grep -q 'apiKeyHelper' "{{ harness_dir }}/models/bin/claude-or" && pass "apiKeyHelper fix" || fail "apiKeyHelper fix missing"
+    [ -f "{{ harness_dir }}/models/or-stream-fix.py" ] && pass "or-stream-fix proxy file" || fail "or-stream-fix proxy missing"
+    python3 -c "import ast; ast.parse(open('{{ harness_dir }}/models/or-stream-fix.py').read())" \
+        && pass "or-stream-fix syntax" || fail "or-stream-fix syntax invalid"
+    grep -q 'via-proxy' "{{ harness_dir }}/models/bin/claude-gemini" && pass "gemini proxy routing" || fail "gemini proxy routing missing"
 
     echo ""
     echo "=== MCP servers ==="

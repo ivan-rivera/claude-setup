@@ -141,5 +141,22 @@
 
 ### Notes
 
-- Initial verification found Claude Code v2.1.236 supports all required features (`advisorModel`, `fallbackModel` array, `claude-sonnet-5`).
-- Live smoke test evidence recorded in final session notes.
+- Claude Code v2.1.236 supports all required features (`advisorModel`, `fallbackModel` array, `claude-sonnet-5`).
+- Agent/skill/command directories pass `claude plugin validate`.
+
+### Live verification results
+
+| Path | Result |
+|------|--------|
+| `claude -p` (default, subscription) | reaches Anthropic API, authenticates; account credit balance too low to complete (account state, not config) |
+| `claude-glm -p "What is 3+3?"` | `6` from `z-ai/glm-5.3` ✓ |
+| `claude-deepseek -p "What is 5+5?"` | `10` from `deepseek/deepseek-v4-flash-0731` ✓ |
+| `claude-gemini -p "What is 2+2?"` | `4` from `google/gemini-3.7-flash` (via stream-fix proxy) ✓ |
+| `claude-gemini` tool use (Read file) | marker returned over 2 turns ✓ |
+| `claude-gemini` multi-turn (`--resume`) | `banana` recalled ✓ |
+| bash-guard hook | blocks `rm -rf`, allows `ls` ✓ |
+
+### Bugs found and fixed during live testing
+
+1. **OpenRouter BYOK rejection (all non-Anthropic models)**: Claude Code attaches the claude.ai managed key as `x-api-key` even when `ANTHROPIC_AUTH_TOKEN` is set; OpenRouter interprets it as an Anthropic BYOK credential (`provider.only: anthropic`) and 404s with "No allowed providers are available". Silent — the `fallbackModel` chain caught it, so responses arrived but from `claude-opus-5`, not the chosen model. Diagnosed with a logging forward proxy; fixed with `--settings '{"apiKeyHelper": "true"}'` (empty helper output keeps `x-api-key` empty).
+2. **Gemini empty responses**: with tools in the request (always, for Claude Code), OpenRouter emits Gemini's thought signature as a thinking block AFTER the text block; Claude Code requires thinking-before-text and drops the message text entirely. Verified by curl bisection (tools in → trailing block; tools out → proper order). Fixed with `harness/models/or-stream-fix.py` — a local proxy that strips signature-only trailing thinking blocks; `claude-gemini` auto-starts it (port 8791).
