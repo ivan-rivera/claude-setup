@@ -45,6 +45,25 @@ mcp:
         -e TAVILY_API_KEY='${TAVILY_API_KEY}' \
         -- npx -y tavily-mcp@latest
     echo "MCP servers registered (user scope): context7, tavily"
+    # Hindsight: shared memory bank 'ivr', same container omp-setup runs via
+    # `just hindsight-up` in that repo — this harness only registers the
+    # client, it does not own the container's lifecycle.
+    if docker ps --format '{{{{.Names}}' 2>/dev/null | grep -qx hindsight; then
+        claude mcp remove -s user hindsight >/dev/null 2>&1 || true
+        claude mcp add -s user --transport http hindsight http://localhost:8888/mcp/ivr/
+        echo "MCP server registered (user scope): hindsight (bank ivr)"
+    else
+        echo "Hindsight container not running — skipping registration. Start it from omp-setup: (cd ~/Documents/os/harness/omp-setup && just hindsight-up), then rerun 'just mcp'."
+    fi
+    # AgentsView: read-only session archive, already indexes this harness's
+    # sessions from ~/.claude/projects/ alongside OMP/Hermes.
+    if command -v agentsview >/dev/null 2>&1; then
+        claude mcp remove -s user agentsview >/dev/null 2>&1 || true
+        claude mcp add -s user agentsview -- agentsview mcp
+        echo "MCP server registered (user scope): agentsview"
+    else
+        echo "agentsview CLI not found — skipping registration. Install via omp-setup: (cd ~/Documents/os/harness/omp-setup && just install-agentsview)."
+    fi
 
 # Symlink harness/ entries into ~/.claude and model launchers into ~/.local/bin
 link: mcp
@@ -166,6 +185,7 @@ test:
     ok=true
     fail() { echo "  FAIL: $1"; ok=false; }
     pass() { echo "  OK: $1"; }
+    warn() { echo "  SKIP: $1"; }
 
     echo "=== Config files ==="
     for f in CLAUDE.md settings.json models-changelog.md; do
@@ -232,6 +252,16 @@ test:
     echo "=== MCP servers ==="
     claude mcp list 2>/dev/null | grep -q context7 && pass "context7 registered" || fail "context7 not registered"
     claude mcp list 2>/dev/null | grep -q tavily && pass "tavily registered" || fail "tavily not registered"
+    if docker ps --format '{{{{.Names}}' 2>/dev/null | grep -qx hindsight; then
+        claude mcp list 2>/dev/null | grep -q hindsight && pass "hindsight registered" || fail "hindsight container is up but MCP not registered (run 'just mcp')"
+    else
+        warn "hindsight container not running (shared with omp-setup — optional here)"
+    fi
+    if command -v agentsview >/dev/null 2>&1; then
+        claude mcp list 2>/dev/null | grep -q agentsview && pass "agentsview registered" || fail "agentsview installed but MCP not registered (run 'just mcp')"
+    else
+        warn "agentsview CLI not installed (shared with omp-setup — optional here)"
+    fi
 
     echo ""
     if $ok; then echo "All checks passed."; else echo "Some checks failed."; exit 1; fi

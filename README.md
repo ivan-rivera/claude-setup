@@ -14,7 +14,7 @@ Personal Claude Code harness for a solo full-stack developer exploring multiple 
 | 2 commands | `harness/commands/` | `/intro` (orientation), `/onboard` (repo setup) |
 | Hook | `harness/hooks/bash-guard.sh` | Blocks destructive shell commands (rm -rf, force-push, DROP TABLE...) |
 | Model launchers | `harness/models/bin/` | `claude-or`, `claude-glm`, `claude-gemini`, `claude-deepseek` — OpenRouter switch-ins |
-| MCP servers | user scope | context7 (library docs), tavily (web research) |
+| MCP servers | user scope | context7 (library docs), tavily (web research), hindsight (shared memory bank, optional — needs the container from `omp-setup`), agentsview (session archive, optional — needs the CLI from `omp-setup`) |
 
 ## Model Lineup
 
