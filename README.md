@@ -51,9 +51,11 @@ Model assignment history: `harness/models-changelog.md` (maintained by `/model-s
 
 ## Setup
 
+Lives at `~/Documents/os/harness/claude-setup` (sibling to `omp-setup` under the same `harness/` home).
+
 ```bash
-git clone git@github.com:ivan-rivera/claude-setup.git
-cd claude-setup
+git clone git@github.com:ivan-rivera/claude-setup.git ~/Documents/os/harness/claude-setup
+cd ~/Documents/os/harness/claude-setup
 just setup
 ```
 

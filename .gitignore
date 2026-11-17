@@ -19,3 +19,28 @@ node_modules/
 .env
 .env.*
 !.env.example
+
+# Externally-managed skill content written directly into harness/skills/
+# (Claude Code's own anthropic-skills sync cache, and marketplace-installed
+# skill families) — not harness-authored, regenerates itself, not tracked.
+# The orca-* / orchestration symlinks ARE tracked (see below) since those are
+# just pointers into Orca's own skill store, not vendored content.
+harness/skills/synced/
+harness/skills/aside-browser/
+harness/skills/embedded-captions/
+harness/skills/faceless-explainer/
+harness/skills/figma/
+harness/skills/general-video/
+harness/skills/hyperframes/
+harness/skills/hyperframes-*/
+harness/skills/media-use/
+harness/skills/motion-graphics/
+harness/skills/music-to-video/
+harness/skills/pr-to-video/
+harness/skills/product-launch-video/
+harness/skills/remotion-to-hyperframes/
+harness/skills/slideshow/
+harness/skills/talking-head-recut/
+
+# Stray backup Claude Code writes before it edits settings.json itself
+harness/settings.json.bak
