@@ -58,6 +58,7 @@ If the user's natural-language request matches a command, skill, or keyword belo
 | `/frontend-design` | is making visual design decisions for UI |
 | `/plugin-creator` | wants to build a Claude Code plugin |
 | `/skill-creator` | wants to create a new skill |
+| `/orca-phase` | wants to plan/launch/supervise a multi-PR phase with Orca (parallel worktree lanes, stacked PRs, gates) |
 
 **Harness agents** (delegate by asking for the agent, e.g. "use the security agent"):
 
