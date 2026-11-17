@@ -11,6 +11,7 @@ date_suffix := `date +%Y-%m-%d`
 
 harness_dirs := "rules agents skills commands hooks"
 launchers    := "claude-or claude-glm claude-gemini claude-deepseek"
+ocr_model    := env_var_or_default("OCR_MODEL", "z-ai/glm-5.3")
 
 # Show all available targets
 help:
@@ -31,7 +32,24 @@ backup:
     [ -f "$HOME/.zshrc" ] && cp "$HOME/.zshrc" "{{ backup_dir }}/zshrc"
     echo "Done ({{ backup_dir }})."
 
-# Register user-scope MCP servers (Context7, Tavily)
+# Install/update the Open Code Review (ocr) CLI and pin its OpenRouter config.
+# Global npm install, shared across any harness on this machine — omp-setup
+# runs the identical recipe, so this is a no-op if already installed there.
+install-ocr:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    echo "Installing/updating Open Code Review (ocr)..."
+    npm install -g @alibaba-group/open-code-review@latest
+    echo "  Installed: $(ocr --version 2>/dev/null | head -1 || true)"
+    ocr config set provider openrouter
+    ocr config set model "{{ ocr_model }}"
+    if [ -n "${OPENROUTER_API_KEY:-}" ]; then
+        ocr llm test
+    else
+        echo "  Warning: OPENROUTER_API_KEY not set — skipped 'ocr llm test' (key is read from the environment at review time)."
+    fi
+
+# Register user-scope MCP servers (Context7, Tavily, Hindsight, AgentsView)
 mcp:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -208,20 +226,20 @@ test:
     done
 
     echo ""
-    echo "=== Skills (5) ==="
-    for s in brainstorming frontend-design model-scout skill-creator plugin-creator; do
+    echo "=== Skills (9) ==="
+    for s in brainstorming frontend-design model-scout skill-creator plugin-creator orca-phase pr-briefing agents-vault ocr-review; do
         [ -f "{{ harness_dir }}/skills/$s/SKILL.md" ] && pass "$s" || fail "$s missing"
     done
 
     echo ""
-    echo "=== Commands (2) ==="
-    for c in intro onboard; do
+    echo "=== Commands (4) ==="
+    for c in intro onboard briefing merge-prs; do
         [ -f "{{ harness_dir }}/commands/$c.md" ] && pass "$c" || fail "$c missing"
     done
 
     echo ""
-    echo "=== Rules (4) ==="
-    for r in python-style typescript-style pr-size-limit claude-tips; do
+    echo "=== Rules (6) ==="
+    for r in python-style typescript-style pr-size-limit claude-tips incidental-finds intercom; do
         [ -f "{{ harness_dir }}/rules/$r.md" ] && pass "$r" || fail "$r missing"
     done
 
@@ -261,6 +279,14 @@ test:
         claude mcp list 2>/dev/null | grep -q agentsview && pass "agentsview registered" || fail "agentsview installed but MCP not registered (run 'just mcp')"
     else
         warn "agentsview CLI not installed (shared with omp-setup — optional here)"
+    fi
+
+    echo ""
+    echo "=== OCR review CLI ==="
+    if command -v ocr >/dev/null 2>&1; then
+        pass "ocr CLI installed ($(ocr --version 2>/dev/null | head -1))"
+    else
+        warn "ocr CLI not installed (run 'just install-ocr')"
     fi
 
     echo ""

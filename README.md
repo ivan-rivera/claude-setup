@@ -8,10 +8,10 @@ Personal Claude Code harness for a solo full-stack developer exploring multiple 
 |-----------|----------|---------|
 | Global context | `harness/CLAUDE.md` | Identity, communication style, quality bar |
 | Settings | `harness/settings.json` | Sonnet 5 main model, Opus advisor, fallback chain, bash-guard hook, auto permission mode |
-| 4 rules | `harness/rules/` | python-style, typescript-style (path-scoped), pr-size-limit, claude-tips (always-on) |
+| 6 rules | `harness/rules/` | python-style, typescript-style (path-scoped), pr-size-limit, claude-tips, incidental-finds, intercom (always-on) |
 | 10 agents | `harness/agents/` | frontend, backend, architect, security, qa, legal, finance, researcher, content-writer, data-generator |
-| 5 skills | `harness/skills/` | brainstorming, frontend-design, model-scout, skill-creator, plugin-creator |
-| 2 commands | `harness/commands/` | `/intro` (orientation), `/onboard` (repo setup) |
+| 9 skills | `harness/skills/` | brainstorming, frontend-design, model-scout, skill-creator, plugin-creator, orca-phase, pr-briefing, agents-vault, ocr-review |
+| 4 commands | `harness/commands/` | `/intro` (orientation), `/onboard` (repo setup), `/briefing` (PR explainer), `/merge-prs` (batch PR merge) |
 | Hook | `harness/hooks/bash-guard.sh` | Blocks destructive shell commands (rm -rf, force-push, DROP TABLE...) |
 | Model launchers | `harness/models/bin/` | `claude-or`, `claude-glm`, `claude-gemini`, `claude-deepseek` — OpenRouter switch-ins |
 | MCP servers | user scope | context7 (library docs), tavily (web research), hindsight (shared memory bank, optional — needs the container from `omp-setup`), agentsview (session archive, optional — needs the CLI from `omp-setup`) |
@@ -85,6 +85,33 @@ Check with `just check-env`.
 | `just test` | Verify structure, linkage, settings, launchers, MCP |
 | `just check-env` | Verify required env vars |
 | `just mcp` | (Re)register user-scope MCP servers |
+| `just install-ocr` | Install/update the `ocr` CLI, pin its OpenRouter config |
+
+## Compared to omp-setup
+
+This harness was rebuilt in November 2026 to catch up with `omp-setup` after going stale since
+August. Ported: Orca phase orchestration (`orca-phase`, on top of the `orca-cli`/`orchestration`
+skills Orca itself installs into `harness/skills/` — see `.gitignore`), `pr-briefing`/`/briefing`,
+`/merge-prs`, `incidental-finds`, `intercom` (rewritten against Claude Code's native
+`SendMessage`/`ListAgents` rather than the `pi-intercom` plugin, which has no Claude Code
+equivalent), `agents-vault` (new `Agents/ClaudeCode/` slice in the shared `~/Documents/hive`
+vault), and MCP registration for the shared Hindsight memory bank and AgentsView session archive
+— both services are owned and run by `omp-setup` (`just hindsight-up`, `just install-agentsview`
+over there); this harness only registers the client side and skips gracefully in `just test` if
+either isn't running.
+
+Deliberately not ported:
+- **Impeccable design plugin** — Claude Code already has native design-plugin skills
+  (`design:design-critique`, `design:accessibility-review`, `design:design-system`,
+  `design:ux-copy`) covering equivalent ground; installing an OMP marketplace plugin into a
+  different host isn't guaranteed to work and would duplicate existing capability.
+- **herdr integration** — explicitly optional/independent in `omp-setup` itself; no Claude Code
+  equivalent surface exists.
+- **PPT Master / brag** — superseded by the native Hyperframes skill family already present here
+  (video/slideshow tooling far beyond what either vendored skill does).
+- **Composio, Linear** — no porting needed; both are already connected independent of this repo
+  (shared CLI/MCP state on this machine).
+
 ## Notes
 
 - **Why launchers instead of global env vars**: keeping `ANTHROPIC_BASE_URL` unset by default preserves the Anthropic subscription for daily driving; the launchers opt specific sessions into OpenRouter billing.
