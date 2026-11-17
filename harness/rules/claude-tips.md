@@ -62,6 +62,7 @@ If the user's natural-language request matches a command, skill, or keyword belo
 | `/skill-creator` | wants to create a new skill |
 | `/orca-phase` | wants to plan/launch/supervise a multi-PR phase with Orca (parallel worktree lanes, stacked PRs, gates) |
 | `/pr-briefing` | wants a plain-language explainer of a PR, distinct from `/code-review` |
+| `/agents-vault` | starts/resumes a multi-session project, or produces durable context worth keeping across sessions |
 
 **Harness agents** (delegate by asking for the agent, e.g. "use the security agent"):
 
