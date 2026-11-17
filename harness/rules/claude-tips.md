@@ -48,6 +48,8 @@ If the user's natural-language request matches a command, skill, or keyword belo
 | `/intro` | wants an orientation to Claude Code and this harness |
 | `/onboard` | wants to set up Claude Code for a new repository |
 | `/update` | wants to check for Claude Code updates (only in the claude-setup repo) |
+| `/briefing <pr>` | wants an explainer (not a review) of a PR |
+| `/merge-prs` | wants a batch of open PRs merged in order with conflicts resolved |
 
 **Custom skills (this harness):**
 
@@ -59,6 +61,7 @@ If the user's natural-language request matches a command, skill, or keyword belo
 | `/plugin-creator` | wants to build a Claude Code plugin |
 | `/skill-creator` | wants to create a new skill |
 | `/orca-phase` | wants to plan/launch/supervise a multi-PR phase with Orca (parallel worktree lanes, stacked PRs, gates) |
+| `/pr-briefing` | wants a plain-language explainer of a PR, distinct from `/code-review` |
 
 **Harness agents** (delegate by asking for the agent, e.g. "use the security agent"):
 
