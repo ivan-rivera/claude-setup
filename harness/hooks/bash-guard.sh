@@ -2,8 +2,9 @@
 # bash-guard.sh — PreToolUse hook for Bash
 #
 # Intercepts destructive shell commands before Claude executes them.
-# Exits 0 (allow) or 1 (block) — when blocked, Claude sees the output
-# and surfaces it to the user for explicit confirmation before retrying.
+# Safe commands exit 0 silently. Flagged commands exit 0 with a PreToolUse
+# "ask" decision, so the user must approve them, including in bypass mode.
+# Runs with no one to answer (claude -p) treat "ask" as a denial.
 
 set -euo pipefail
 
@@ -27,13 +28,27 @@ if echo "$COMMAND" | grep -qE '\brm\b.+(-[a-zA-Z]*[rR][a-zA-Z]*f|-[a-zA-Z]*f[a-z
 fi
 
 # ── Git force-push ────────────────────────────────────────────────────────────
-if echo "$COMMAND" | grep -qE '\bgit\b.+push\b.+(--force\b|-f\b)'; then
-  if echo "$COMMAND" | grep -qE '(main|master|production|prod|release|develop)'; then
+# Checked per shell segment. --force-with-lease to an explicitly named,
+# non-protected branch passes because Orca phase workers restack PRs with it.
+FORCE_PUSH='\bgit\b.+push\b.+(--force\b|-f\b)'
+PROTECTED_REF='(^|[^[:alnum:]_-])(main|master|production|prod|release|develop)($|[^[:alnum:]_-])'
+NAMED_REF='\bgit\b.*\bpush\b([[:space:]]+-[^[:space:]]+)*[[:space:]]+[^-[:space:]]+[[:space:]]+[^-[:space:]]+'
+HEAD_REF='(^|[[:space:]:+])HEAD($|[[:space:]:])'
+
+while IFS= read -r SEGMENT; do
+  echo "$SEGMENT" | grep -qE "$FORCE_PUSH" || continue
+  if echo "$SEGMENT" | grep -qE "$PROTECTED_REF"; then
     REASONS+=("🚨 force-push to a protected branch — rewrites shared history, breaks teammates' clones")
-  else
-    REASONS+=("⚠️  force-push — rewrites remote history; confirm this branch has no other contributors")
+    continue
   fi
-fi
+  WITHOUT_LEASE=$(echo "$SEGMENT" | sed -E 's/--force-with-lease(=[^[:space:]]+)?//g; s/--force-if-includes//g')
+  if ! echo "$WITHOUT_LEASE" | grep -qE "$FORCE_PUSH" \
+    && echo "$WITHOUT_LEASE" | grep -qE "$NAMED_REF" \
+    && ! echo "$WITHOUT_LEASE" | grep -qE "$HEAD_REF"; then
+    continue
+  fi
+  REASONS+=("⚠️  force-push — rewrites remote history; confirm this branch has no other contributors")
+done < <(printf '%s\n' "$COMMAND" | tr ';&|' '\n')
 
 # ── Git hard reset ────────────────────────────────────────────────────────────
 if echo "$COMMAND" | grep -qE '\bgit\b.+reset\b.+--hard\b'; then
@@ -73,14 +88,15 @@ fi
 # ── All clear ────────────────────────────────────────────────────────────────
 [ ${#REASONS[@]} -eq 0 ] && exit 0
 
-# ── Block and explain ─────────────────────────────────────────────────────────
-echo "🛑 Bash Guard: potentially destructive command intercepted."
-echo ""
-echo "  Command: $(echo "$COMMAND" | head -1)$([ "$(echo "$COMMAND" | wc -l)" -gt 1 ] && echo " [...]" || echo "")"
-echo ""
+# ── Require confirmation ──────────────────────────────────────────────────────
+GUARD_REASON="🛑 Bash Guard: potentially destructive command intercepted."
+GUARD_REASON+=$'\n\n'"  Command: $(echo "$COMMAND" | head -1)$([ "$(echo "$COMMAND" | wc -l)" -gt 1 ] && echo " [...]" || echo "")"$'\n'
 for reason in "${REASONS[@]}"; do
-  echo "  • $reason"
+  GUARD_REASON+=$'\n'"  • $reason"
 done
-echo ""
-echo "Ask the user to confirm before retrying this command."
-exit 1
+export GUARD_REASON
+
+# If the decision cannot be emitted, block instead of letting the command run.
+python3 -c 'import json, os; print(json.dumps({"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "ask", "permissionDecisionReason": os.environ["GUARD_REASON"]}}))' \
+  || { echo "$GUARD_REASON" >&2; exit 2; }
+exit 0

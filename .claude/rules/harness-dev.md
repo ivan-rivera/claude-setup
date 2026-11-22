@@ -16,7 +16,7 @@ This repository contains Claude Code configuration files. When editing files und
 - **Commands** (`harness/commands/*.md`): frontmatter like skills; filename (minus `.md`) is the command name. Arguments via `$ARGUMENTS`, `$0`, `$1`... Dynamic context via `` !`command` `` lines.
 - **settings.json** (`harness/settings.json`): JSON. Relevant keys: `model`, `advisorModel`, `fallbackModel` (array), `env`, `permissions.defaultMode`, `hooks`, `tui`, `voice`. This file is symlinked to `~/.claude/settings.json` — keep it valid JSON.
 - **Launchers** (`harness/models/bin/*`): bash scripts, executable, each `exec`s `claude` with OpenRouter env vars. Base URL is `https://openrouter.ai/api`, auth via `ANTHROPIC_AUTH_TOKEN="$OPENROUTER_API_KEY"`, `ANTHROPIC_API_KEY=""`.
-- **bash-guard.sh** (`harness/hooks/bash-guard.sh`): PreToolUse hook, exit 0 allows, exit 1 blocks with explanation on stdout.
+- **bash-guard.sh** (`harness/hooks/bash-guard.sh`): PreToolUse hook. Safe commands exit 0 silently; flagged commands exit 0 with a JSON `permissionDecision: "ask"` so the user must confirm. Never use exit 1 to block: Claude Code treats it as a non-blocking error and runs the command.
 
 When adding new agents, skills, or commands, also update `harness/rules/claude-tips.md` with a reference entry.
 

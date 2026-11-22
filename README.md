@@ -12,7 +12,7 @@ Personal Claude Code harness for a solo full-stack developer exploring multiple 
 | 10 agents | `harness/agents/` | frontend, backend, architect, security, qa, legal, finance, researcher, content-writer, data-generator |
 | 9 skills | `harness/skills/` | brainstorming, frontend-design, model-scout, skill-creator, plugin-creator, orca-phase, pr-briefing, agents-vault, ocr-review |
 | 4 commands | `harness/commands/` | `/intro` (orientation), `/onboard` (repo setup), `/briefing` (PR explainer), `/merge-prs` (batch PR merge) |
-| Hook | `harness/hooks/bash-guard.sh` | Blocks destructive shell commands (rm -rf, force-push, DROP TABLE...) |
+| Hook | `harness/hooks/bash-guard.sh` | Requires confirmation for destructive shell commands (rm -rf, force-push, DROP TABLE...) |
 | Model launchers | `harness/models/bin/` | `claude-or`, `claude-glm`, `claude-gemini`, `claude-deepseek` — OpenRouter switch-ins |
 | MCP servers | user scope | context7 (library docs), tavily (web research), hindsight (shared memory bank, optional — needs the container from `omp-setup`), agentsview (session archive, optional — needs the CLI from `omp-setup`) |
 
