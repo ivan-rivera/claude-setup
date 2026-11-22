@@ -32,7 +32,7 @@ fi
 # non-protected branch passes because Orca phase workers restack PRs with it.
 FORCE_PUSH='\bgit\b.+\bpush\b.*[[:space:]](--force(-with-lease(=[^[:space:]]*)?|-if-includes)?|-[a-zA-Z]*f[a-zA-Z]*)([[:space:]]|$)'
 PROTECTED_REF='(^|[^[:alnum:]_-])(main|master|production|prod|release|develop)($|[^[:alnum:]_-])'
-NAMED_REF='\bgit\b.*\bpush\b([[:space:]]+-[^[:space:]]+)*[[:space:]]+[^-[:space:]]+[[:space:]]+[^-[:space:]]+'
+NAMED_REF='\bgit\b.*\bpush\b([[:space:]]+(-u|--set-upstream|-q|--quiet|-v|--verbose|--no-verify|--atomic))*[[:space:]]+[^-[:space:]]+[[:space:]]+[^-[:space:]]+'
 HEAD_REF='(^|[[:space:]:+])HEAD($|[[:space:]:])'
 
 while IFS= read -r SEGMENT; do
