@@ -30,7 +30,8 @@ fi
 # ── Git force-push ────────────────────────────────────────────────────────────
 # Checked per shell segment. --force-with-lease to an explicitly named,
 # non-protected branch passes because Orca phase workers restack PRs with it.
-FORCE_PUSH='\bgit\b.+\bpush\b.*[[:space:]](--force(-with-lease(=[^[:space:]]*)?|-if-includes)?|-[a-zA-Z]*f[a-zA-Z]*)([[:space:]]|$)'
+# A +refspec is a force-push with no flag, and it overrides any lease.
+FORCE_PUSH='\bgit\b.+\bpush\b.*[[:space:]](--force(-with-lease(=[^[:space:]]*)?|-if-includes)?|-[a-zA-Z]*f[a-zA-Z]*|\+[^[:space:]]+)([[:space:]]|$)'
 PROTECTED_REF='(^|[^[:alnum:]_-])(main|master|production|prod|release|develop)($|[^[:alnum:]_-])'
 NAMED_REF='\bgit\b.*\bpush\b([[:space:]]+(-u|--set-upstream|-q|--quiet|-v|--verbose|--no-verify|--atomic))*[[:space:]]+[^-[:space:]]+[[:space:]]+[^-[:space:]]+'
 HEAD_REF='(^|[[:space:]:+])HEAD($|[[:space:]:])'
@@ -48,7 +49,7 @@ while IFS= read -r SEGMENT; do
     continue
   fi
   REASONS+=("⚠️  force-push — rewrites remote history; confirm this branch has no other contributors")
-done < <(printf '%s\n' "$COMMAND" | tr ';&|' '\n')
+done < <(printf '%s\n' "$COMMAND" | tr -d "\"'" | tr ';&|' '\n')
 
 # ── Git hard reset ────────────────────────────────────────────────────────────
 if echo "$COMMAND" | grep -qE '\bgit\b.+reset\b.+--hard\b'; then
