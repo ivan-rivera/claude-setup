@@ -30,7 +30,7 @@ fi
 # ── Git force-push ────────────────────────────────────────────────────────────
 # Checked per shell segment. --force-with-lease to an explicitly named,
 # non-protected branch passes because Orca phase workers restack PRs with it.
-FORCE_PUSH='\bgit\b.+push\b.+(--force\b|-f\b)'
+FORCE_PUSH='\bgit\b.+\bpush\b.*[[:space:]](--force(-with-lease(=[^[:space:]]*)?|-if-includes)?|-[a-zA-Z]*f[a-zA-Z]*)([[:space:]]|$)'
 PROTECTED_REF='(^|[^[:alnum:]_-])(main|master|production|prod|release|develop)($|[^[:alnum:]_-])'
 NAMED_REF='\bgit\b.*\bpush\b([[:space:]]+-[^[:space:]]+)*[[:space:]]+[^-[:space:]]+[[:space:]]+[^-[:space:]]+'
 HEAD_REF='(^|[[:space:]:+])HEAD($|[[:space:]:])'
