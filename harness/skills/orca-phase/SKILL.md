@@ -9,18 +9,32 @@ One phase is a user-approved PR plan executed by one Orca supervisor. A PR is th
 
 ## Authority and prerequisites
 
-- No worktree, Run, task, gate, file, branch, agent, external label, or other orchestration state is created or changed before the user explicitly approves the complete draft. Read-only source and repository inspection is allowed; do not fetch or modify refs during planning. If local `origin/<default>` is stale or missing, say so and use read-only remote evidence or ask the user how to proceed.
+- No worktree, Run, task, gate, file, branch, agent, external label, or other orchestration state is created or changed before the user explicitly approves the complete draft. The one exception is the review draft and its result file under `~/.claude/plans/orca-phase/`, outside every repository. Read-only source and repository inspection is allowed; do not fetch or modify refs during planning. If local `origin/<default>` is stale or missing, say so and use read-only remote evidence or ask the user how to proceed.
 - The launcher creates the phase only after approval. The supervisor is the user's sole execution contact; workers communicate through Orca with the supervisor. Internal Orca messages and workspace-card updates are allowed. No agent merges or approves a PR, posts an external comment or message, changes an external label, or independently asserts a human gate is done. Opening and updating the authorized PRs and branches is allowed.
 - Use the Orca executable selected by `ORCA_CLI_COMMAND`, otherwise `orca-dev` in an `ORCA_DEV_REPO_ROOT` dev session, `orca-ide` on Linux outside Orca, otherwise `orca`. Use the same executable throughout; do not silently switch builds. Invoke the `orchestration` and `orca-cli` skills (via the Skill tool) and load their named references for DAGs, messaging, placement and recovery, and consult the selected executable's `--help` for flags. Never guess unsupported behavior. If the CLI or required runtime is unavailable, report the error and stop.
 - This workflow uses one execution host: the phase plan's absolute path must be readable by the supervisor and every worker, even across repositories. Resolve repository selectors, default branches, GitHub remotes and access before launch. Parent links across repositories are Orca lineage, not Git ancestry.
-- Orca and the phase plan are coordination authorities; Git and GitHub remain authoritative for branches, PRs and checks. Do not create a separate ledger, watcher, polling loop, review server or First Mate/Herdr fleet. Existing archives are not migration input or deletion targets.
+- Orca and the phase plan are coordination authorities; Git and GitHub remain authoritative for branches, PRs and checks. Do not create a separate ledger, watcher, polling loop, custom review server or First Mate/Herdr fleet. The Plannotator session in planning is the only review surface. Existing archives are not migration input or deletion targets.
 
 ## Plan in chat
+
+**Shape the work first.** Skip this if the user supplied a detailed plan or asks to skip it. Otherwise read the newest `~/.claude/plugins/cache/claude-plugins-official/superpowers/*/skills/brainstorming/SKILL.md` by version; if none exists, invoke the local `brainstorming` skill. The Superpowers plugin stays disabled because its startup hook would apply to every session, including workers; do not enable it. Follow the skill's conversation until the user agrees on a design, with these overrides: do not write or commit a design doc, do not invoke `writing-plans` or an implementation skill, and do not start its visual companion unless the user asks. The agreed design is the input to step 1.
 
 1. Read the named source items and their acceptance criteria. For each proposed PR inspect `origin/<default>` and record repository, base SHA, touched or new paths and `file:line` evidence; identify uncertainty rather than inventing files. Keep work and PR size within the repository's rules (see `pr-size-limit`) or obtain the user's explicit exception.
 2. Group PRs that touch the same files into the same repository lane; take the transitive closure of overlaps. A lane is placement, not a task. Record owned paths, including anticipated new files. Raise uncertain overlaps before dispatch; file ownership is not a substitute for interface dependencies.
 3. Classify every dependency. `P<n> (stacked)` is allowed only on the immediately preceding PR in the same lane, and releases when that primary task succeeds. Every cross-lane or cross-repo PR dependency is `P<n> (merged)`. A dependency on a deployed change additionally needs a human deployment gate. Gates may depend on PR merges or other gates. Reject missing IDs, inconsistent repositories, duplicate IDs, impossible lane order and cycles across PRs and gates. Record shared interfaces as contracts with one owner PR and named consumers.
-4. Present a complete draft in chat: lanes and file evidence, each PR's change and observable acceptance, dependencies and gates, contracts, critical path, findings and genuine questions. Keep worker solutions open; the plan is an execution contract, not a worked implementation. Do not write a draft file or create resources. Wait for an explicit yes to this draft; revise and ask again after material changes.
+4. Write the complete draft to `~/.claude/plans/orca-phase/<document>-<phase>.draft.md` in the plan format with `status: draft`: lanes and file evidence, each PR's change and observable acceptance, dependencies and gates, contracts, critical path, findings and genuine questions. Keep worker solutions open; the plan is an execution contract, not a worked implementation. Create no other resources.
+5. Open it for review with a background shell command (Claude Code: `run_in_background: true`, `timeout: 7200000`), tell the user the browser review is open, and end the turn. Orca is not involved yet, and the command's exit wakes you:
+
+   ```bash
+   PLANNOTATOR_SHARE=disabled plannotator annotate "<draft>" --gate --json --title "<document> · <phase>" --result-file "<draft>.review.json"
+   ```
+
+   Read the decision from the result file:
+   - `approved`: this is the explicit yes to this exact draft. Launch.
+   - `annotated`: address every comment in the draft, summarize what changed in chat, and reopen the review. Ask in chat only when a comment needs a decision.
+   - `dismissed`, a missing result, a timeout or an error: this is not approval. Ask in chat whether to reopen the review or continue there.
+
+   If Plannotator is unavailable, present the complete draft in chat and wait for an explicit yes. After any material change, get approval again.
 
 ## Plan format
 
@@ -70,12 +84,12 @@ Depends on: P1 (merged)
 <append dated approved scope/order decisions and recovery identity; initially none>
 ```
 
-PR and gate IDs are unique within the phase. A plan may have multiple lanes, PRs, contracts and gates. `status` is `draft` in the chat draft and `approved` only after the user's explicit yes; the first on-disk copy is approved. A gate's `Depends on` means the supervisor cannot resolve it before those conditions are satisfied. Every gate must name at least one dependent PR or be an explicit phase-completion gate. A gate with no dependent PR uses a clearly titled gate-anchor task; it is bookkeeping, not a PR. `## Changes` records approved changes and recovery identifiers, not a second copy of live Orca status.
+PR and gate IDs are unique within the phase. A plan may have multiple lanes, PRs, contracts and gates. `status` is `draft` in the review draft and `approved` only after the user's explicit yes; the first copy in the phase worktree is approved. A gate's `Depends on` means the supervisor cannot resolve it before those conditions are satisfied. Every gate must name at least one dependent PR or be an explicit phase-completion gate. A gate with no dependent PR uses a clearly titled gate-anchor task; it is bookkeeping, not a PR. `## Changes` records approved changes and recovery identifiers, not a second copy of live Orca status.
 
 ## Launch and hand off
 
 1. Discover the home repo and matching document worktree by exact repository, parent and display name. If several match, or an existing worktree's ownership is unclear, ask instead of reusing or altering it. Create the document worktree if absent, then create the phase worktree under it; use `--setup skip` and display names `<document>` and `<document> · <phase>`. Do not request an agent for the document. Repo default tabs can still appear; do not close or take over existing sessions without proof and permission.
-2. Before writing the plan, resolve `git rev-parse --git-path info/exclude` from the phase worktree and add the exact `/.orca-phase/` entry only if absent, preserving all existing contents. This Git exclude file is shared by linked worktrees of that repository; never remove a pre-existing entry. Write the approved plan in the phase worktree and verify Git ignores it.
+2. Before writing the plan, resolve `git rev-parse --git-path info/exclude` from the phase worktree and add the exact `/.orca-phase/` entry only if absent, preserving all existing contents. This Git exclude file is shared by linked worktrees of that repository; never remove a pre-existing entry. Copy the approved review draft to `.orca-phase/plan.md` in the phase worktree, set `status: approved`, and verify Git ignores it.
 3. Launch the selected agent in that worktree with `orca agent launch`, passing a short prompt containing the absolute path to this skill and the absolute plan path, and instructing it to read both and execute the supervisor section. Select the executable as above. Rename the launched tab `Supervisor` using the receipt's actual chat or terminal identity and the appropriate Orca command; do not assume chat has a terminal handle. If launch outcome is unknown, use the documented operation-id recovery; never launch a duplicate.
 4. Give the user the phase workspace and supervisor handle, then stop. Do not run the phase from the launcher. The plan stays in the phase worktree and is lost if that worktree is removed.
 
