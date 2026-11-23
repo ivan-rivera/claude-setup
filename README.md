@@ -14,7 +14,7 @@ Personal Claude Code harness for a solo full-stack developer exploring multiple 
 | 4 commands | `harness/commands/` | `/intro` (orientation), `/onboard` (repo setup), `/briefing` (PR explainer), `/merge-prs` (batch PR merge) |
 | Hook | `harness/hooks/bash-guard.sh` | Requires confirmation for destructive shell commands (rm -rf, force-push, DROP TABLE...) |
 | Model launchers | `harness/models/bin/` | `claude-or`, `claude-glm`, `claude-gemini`, `claude-deepseek` — OpenRouter switch-ins |
-| MCP servers | user scope | context7 (library docs), tavily (web research), hindsight (shared memory bank, optional — needs the container from `omp-setup`), agentsview (session archive, optional — needs the CLI from `omp-setup`) |
+| MCP servers | user scope | context7 (library docs), tavily (web research), hindsight (shared memory bank, optional — `just hindsight-up`), agentsview (session archive, optional — `just install-agentsview`) |
 
 ## Model Lineup
 
@@ -48,10 +48,11 @@ Model assignment history: `harness/models-changelog.md` (maintained by `/model-s
 - [just](https://github.com/casey/just) — `brew install just`
 - [gh](https://cli.github.com) CLI, authenticated (for `/update` and repo ops)
 - Node/npx (for MCP servers)
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/) (optional, for Hindsight)
 
 ## Setup
 
-Lives at `~/Documents/os/harness/claude-setup` (sibling to `omp-setup` under the same `harness/` home).
+Lives at `~/Documents/os/harness/claude-setup`.
 
 ```bash
 git clone git@github.com:ivan-rivera/claude-setup.git ~/Documents/os/harness/claude-setup
@@ -60,6 +61,10 @@ just setup
 ```
 
 `just setup` = `just backup` + `just link`. The backup copies your existing `~/.claude` to `~/.claude-backup` (skipped if one exists). Linking moves any pre-existing `~/.claude/{CLAUDE.md,settings.json,rules,agents,skills,commands,hooks}` into `~/.claude-backup/linked-originals/` and symlinks the harness in their place. Runtime state (`sessions/`, `projects/`, `plugins/`, `history.jsonl`, etc.) stays in `~/.claude` untouched.
+
+### Hindsight memory server
+
+`just hindsight-up` starts the shared memory server and sets Docker Desktop to open at login. Docker then brings the container back after a reboot, so there is nothing to run day to day. Claude Code and Hermes are both clients of this server at `localhost:8888`. If it is stopped, agents keep working without memory. On a new machine, run `just hindsight-up` and then `just mcp`.
 
 ## Environment Variables
 
@@ -86,8 +91,14 @@ Check with `just check-env`.
 | `just check-env` | Verify required env vars |
 | `just mcp` | (Re)register user-scope MCP servers |
 | `just install-ocr` | Install/update the `ocr` CLI, pin its OpenRouter config |
+| `just install-agentsview` | Install/update the AgentsView session archive |
+| `just hindsight-up` | Start the Hindsight memory server and enable autostart |
+| `just hindsight-down` | Stop Hindsight until the next `just hindsight-up` |
+| `just hindsight-autostart` | Make Docker Desktop open at login |
 
 ## Compared to omp-setup
+
+`omp-setup` is retired, and nothing here depends on it. This section is kept as history.
 
 This harness was rebuilt in November 2026 to catch up with `omp-setup` after going stale since
 August. Ported: Orca phase orchestration (`orca-phase`, on top of the `orca-cli`/`orchestration`
@@ -95,9 +106,8 @@ skills Orca itself installs into `harness/skills/` — see `.gitignore`), `pr-br
 `/merge-prs`, `incidental-finds`, `intercom` (rewritten against Claude Code's native
 `SendMessage`/`ListAgents` rather than the `pi-intercom` plugin, which has no Claude Code
 equivalent), `agents-vault` (new `Agents/ClaudeCode/` slice in the shared `~/Documents/hive`
-vault), and MCP registration for the shared Hindsight memory bank and AgentsView session archive
-— both services are owned and run by `omp-setup` (`just hindsight-up`, `just install-agentsview`
-over there); this harness only registers the client side and skips gracefully in `just test` if
+vault), and the shared Hindsight memory bank and AgentsView session archive, whose recipes
+(`just hindsight-up`, `just install-agentsview`) now live here. `just test` skips gracefully if
 either isn't running.
 
 Deliberately not ported:

@@ -33,8 +33,7 @@ backup:
     echo "Done ({{ backup_dir }})."
 
 # Install/update the Open Code Review (ocr) CLI and pin its OpenRouter config.
-# Global npm install, shared across any harness on this machine — omp-setup
-# runs the identical recipe, so this is a no-op if already installed there.
+# Global npm install, shared across any harness on this machine.
 install-ocr:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -48,6 +47,85 @@ install-ocr:
     else
         echo "  Warning: OPENROUTER_API_KEY not set — skipped 'ocr llm test' (key is read from the environment at review time)."
     fi
+
+# Install/update the AgentsView session archive (https://agentsview.io)
+install-agentsview:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    echo "Installing/updating AgentsView..."
+    curl -fsSL https://agentsview.io/install.sh | bash
+    # The installer prefers /usr/local/bin and falls back to ~/.local/bin.
+    bin=$(command -v agentsview || true)
+    [ -n "$bin" ] || bin=$([ -x "$HOME/.local/bin/agentsview" ] && echo "$HOME/.local/bin/agentsview" || true)
+    [ -n "$bin" ] || { echo "Installer did not produce an agentsview binary — aborting." >&2; exit 1; }
+    echo "  Installed: $("$bin" --version 2>/dev/null | head -1 || echo unknown) at $bin"
+    echo "  Indexing discovered sessions (auto-starts the archive daemon; first run can take a while)..."
+    "$bin" sync
+    echo "  Web UI: agentsview serve  →  http://127.0.0.1:8080"
+
+# Open Docker Desktop at login so the Hindsight container returns after a reboot
+hindsight-autostart:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    label=com.hindsight.docker
+    plist="$HOME/Library/LaunchAgents/$label.plist"
+    domain="gui/$(id -u)"
+    tmp=$(mktemp)
+    trap 'rm -f "$tmp"' EXIT
+    cat > "$tmp" <<EOF
+    <?xml version="1.0" encoding="UTF-8"?>
+    <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+    <plist version="1.0">
+    <dict>
+        <key>Label</key>
+        <string>$label</string>
+        <key>ProgramArguments</key>
+        <array>
+            <string>/bin/sh</string>
+            <string>-c</string>
+            <string>pgrep -xq "Docker Desktop" || exec /usr/bin/open -g -j -a Docker</string>
+        </array>
+        <key>RunAtLoad</key>
+        <true/>
+        <key>LimitLoadToSessionType</key>
+        <string>Aqua</string>
+        <key>StandardErrorPath</key>
+        <string>$HOME/.hindsight/docker-autostart.log</string>
+    </dict>
+    </plist>
+    EOF
+    plutil -lint -s "$tmp"
+    mkdir -p "$(dirname "$plist")" "$HOME/.hindsight"
+    if ! cmp -s "$tmp" "$plist"; then
+        launchctl bootout "$domain/$label" 2>/dev/null || true
+        install -m 644 "$tmp" "$plist"
+    fi
+    launchctl print "$domain/$label" >/dev/null 2>&1 || launchctl bootstrap "$domain" "$plist"
+    echo "Docker Desktop opens at login ($label)."
+
+# Hindsight's data persists in the hindsight-data Docker volume, and Docker restarts
+# the container. LLM = z-ai/glm-5.3-flash via OpenRouter (needs OPENROUTER_API_KEY).
+# LLM_TIMEOUT=600 covers slow calls, MAX_CONCURRENT=4 caps bursts, and
+# REFLECT_WALL_TIMEOUT=900 because mental-model refreshes overran the 300s default.
+# `docker start` keeps an existing container's flags: remove it to apply changes here.
+# Never `docker commit` this container: its env, including the API key, enters the image.
+# Start Hindsight: localhost-only, digest-pinned (v1.1.0), key passed at runtime
+hindsight-up: hindsight-autostart
+    docker start hindsight 2>/dev/null || HINDSIGHT_API_LLM_API_KEY="${OPENROUTER_API_KEY:?OPENROUTER_API_KEY is not set}" docker run -d --name hindsight --restart unless-stopped \
+        -p 127.0.0.1:8888:8888 -p '[::1]:8888:8888' \
+        -p 127.0.0.1:9999:9999 -p '[::1]:9999:9999' \
+        -e HINDSIGHT_API_LLM_PROVIDER=openrouter \
+        -e HINDSIGHT_API_LLM_MODEL=z-ai/glm-5.3-flash \
+        -e HINDSIGHT_API_LLM_API_KEY \
+        -e HINDSIGHT_API_LLM_TIMEOUT=600 \
+        -e HINDSIGHT_API_LLM_MAX_CONCURRENT=4 \
+        -e HINDSIGHT_API_REFLECT_WALL_TIMEOUT=900 \
+        -v hindsight-data:/home/hindsight/.pg0 \
+        ghcr.io/vectorize-io/hindsight@sha256:50311d02b4d5d2b7c5242bd336edf8735df8374eaad496a92f49c83b37d2aa06
+
+# Stop Hindsight (stays stopped until 'just hindsight-up', even after a reboot)
+hindsight-down:
+    docker stop hindsight
 
 # Register user-scope MCP servers (Context7, Tavily, Hindsight, AgentsView)
 mcp:
@@ -63,10 +141,9 @@ mcp:
         -e TAVILY_API_KEY='${TAVILY_API_KEY}' \
         -- npx -y tavily-mcp@latest
     echo "MCP servers registered (user scope): context7, tavily"
-    # Hindsight: shared memory bank 'ivr', same container omp-setup runs via
-    # `just hindsight-up` in that repo — this harness only registers the
-    # client, it does not own the container's lifecycle. The integration owns
-    # the hooks and MCP server; ~/.hindsight/coding-agent.json owns the routing.
+    # Hindsight: shared memory bank 'ivr', in the container `just hindsight-up`
+    # runs. The integration owns the hooks and MCP server;
+    # ~/.hindsight/coding-agent.json owns the routing.
     if docker ps --format '{{{{.Names}}' 2>/dev/null | grep -qx hindsight; then
         if [ -f "$HOME/.hindsight/coding-agent.json" ]; then
             npx -y @vectorize-io/hindsight-coding-agents@0.8.8 install claude-code --server self-hosted --api-url http://localhost:8888
@@ -75,16 +152,16 @@ mcp:
             echo "~/.hindsight/coding-agent.json is missing — skipping Hindsight so memory cannot fall back to per-repo banks."
         fi
     else
-        echo "Hindsight container not running — skipping registration. Start it from omp-setup: (cd ~/Documents/os/harness/omp-setup && just hindsight-up), then rerun 'just mcp'."
+        echo "Hindsight container not running — skipping registration. Run 'just hindsight-up', then rerun 'just mcp'."
     fi
     # AgentsView: read-only session archive, already indexes this harness's
-    # sessions from ~/.claude/projects/ alongside OMP/Hermes.
+    # sessions from ~/.claude/projects/ alongside Hermes.
     if command -v agentsview >/dev/null 2>&1; then
         claude mcp remove -s user agentsview >/dev/null 2>&1 || true
         claude mcp add -s user agentsview -- agentsview mcp
         echo "MCP server registered (user scope): agentsview"
     else
-        echo "agentsview CLI not found — skipping registration. Install via omp-setup: (cd ~/Documents/os/harness/omp-setup && just install-agentsview)."
+        echo "agentsview CLI not found — skipping registration. Run 'just install-agentsview', then rerun 'just mcp'."
     fi
 
 # Symlink harness/ entries into ~/.claude and model launchers into ~/.local/bin
@@ -277,12 +354,12 @@ test:
     if docker ps --format '{{{{.Names}}' 2>/dev/null | grep -qx hindsight; then
         claude mcp list 2>/dev/null | grep -q hindsight && pass "hindsight registered" || fail "hindsight container is up but MCP not registered (run 'just mcp')"
     else
-        warn "hindsight container not running (shared with omp-setup — optional here)"
+        warn "hindsight container not running (optional — run 'just hindsight-up')"
     fi
     if command -v agentsview >/dev/null 2>&1; then
         claude mcp list 2>/dev/null | grep -q agentsview && pass "agentsview registered" || fail "agentsview installed but MCP not registered (run 'just mcp')"
     else
-        warn "agentsview CLI not installed (shared with omp-setup — optional here)"
+        warn "agentsview CLI not installed (optional — run 'just install-agentsview')"
     fi
 
     echo ""
