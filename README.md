@@ -64,7 +64,7 @@ just setup
 
 ### Hindsight memory server
 
-`just hindsight-up` starts the shared memory server and sets Docker Desktop to open at login. Docker then brings the container back after a reboot, so there is nothing to run day to day. Claude Code and Hermes are both clients of this server at `localhost:8888`. If it is stopped, agents keep working without memory. On a new machine, run `just hindsight-up` and then `just mcp`.
+`just hindsight-up` starts the shared memory server and sets Docker Desktop to open at login. Docker then brings the container back after a reboot, so there is nothing to run day to day. Claude Code and Hermes are both clients of this server at `localhost:8888`. If it is stopped, agents keep working without memory. On a new machine, run `just hindsight-up`, restore `~/.hindsight/coding-agent.json` (it holds the bank routing and isn't in this repo), then run `just mcp`.
 
 ## Environment Variables
 
