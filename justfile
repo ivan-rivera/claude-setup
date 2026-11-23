@@ -65,11 +65,15 @@ mcp:
     echo "MCP servers registered (user scope): context7, tavily"
     # Hindsight: shared memory bank 'ivr', same container omp-setup runs via
     # `just hindsight-up` in that repo — this harness only registers the
-    # client, it does not own the container's lifecycle.
+    # client, it does not own the container's lifecycle. The integration owns
+    # the hooks and MCP server; ~/.hindsight/coding-agent.json owns the routing.
     if docker ps --format '{{{{.Names}}' 2>/dev/null | grep -qx hindsight; then
-        claude mcp remove -s user hindsight >/dev/null 2>&1 || true
-        claude mcp add -s user --transport http hindsight http://localhost:8888/mcp/ivr/
-        echo "MCP server registered (user scope): hindsight (bank ivr)"
+        if [ -f "$HOME/.hindsight/coding-agent.json" ]; then
+            npx -y @vectorize-io/hindsight-coding-agents@0.8.8 install claude-code --server self-hosted --api-url http://localhost:8888
+            echo "Hindsight integration registered (bank ivr)"
+        else
+            echo "~/.hindsight/coding-agent.json is missing — skipping Hindsight so memory cannot fall back to per-repo banks."
+        fi
     else
         echo "Hindsight container not running — skipping registration. Start it from omp-setup: (cd ~/Documents/os/harness/omp-setup && just hindsight-up), then rerun 'just mcp'."
     fi
