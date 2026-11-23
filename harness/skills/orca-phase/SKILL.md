@@ -5,7 +5,7 @@ description: "Plan and run one approved phase of pull requests with Orca: one su
 
 # Orca phase
 
-One phase is a user-approved PR plan executed by one Orca supervisor. A PR is the tracking unit; a lane is one repository, one child worktree and one worker agent, with its PRs shipped in order. Plan in the user's chat, hand off after approval, then supervise from the phase workspace. Do not replace Orca workers with in-process agents.
+One phase is a user-approved PR plan executed by one Orca supervisor. A PR is the tracking unit; a lane is one repository, one child worktree and one worker agent, with its PRs shipped in order. Plan in the user's chat, hand off after approval, then supervise from the phase workspace. Do not replace Orca workers with in-process agents. An approved agent team runs inside a lane's worker and follows the `agent-teams` rule.
 
 ## Authority and prerequisites
 
@@ -68,6 +68,7 @@ Files: <paths and file:line evidence>
 Change: <scope>
 Done when: <observable acceptance, validation and review evidence>
 Depends on: none
+Team: none
 
 ### PR {#P2}
 Change: <scope>
@@ -84,7 +85,7 @@ Depends on: P1 (merged)
 <append dated approved scope/order decisions and recovery identity; initially none>
 ```
 
-PR and gate IDs are unique within the phase. A plan may have multiple lanes, PRs, contracts and gates. `status` is `draft` in the review draft and `approved` only after the user's explicit yes; the first copy in the phase worktree is approved. A gate's `Depends on` means the supervisor cannot resolve it before those conditions are satisfied. Every gate must name at least one dependent PR or be an explicit phase-completion gate. A gate with no dependent PR uses a clearly titled gate-anchor task; it is bookkeeping, not a PR. `## Changes` records approved changes and recovery identifiers, not a second copy of live Orca status.
+`Team` is optional and defaults to `none`. When the `agent-teams` rule supports one, write `Team: <2-3 roles>: <why this PR needs them>`. PR and gate IDs are unique within the phase. A plan may have multiple lanes, PRs, contracts and gates. `status` is `draft` in the review draft and `approved` only after the user's explicit yes; the first copy in the phase worktree is approved. A gate's `Depends on` means the supervisor cannot resolve it before those conditions are satisfied. Every gate must name at least one dependent PR or be an explicit phase-completion gate. A gate with no dependent PR uses a clearly titled gate-anchor task; it is bookkeeping, not a PR. `## Changes` records approved changes and recovery identifiers, not a second copy of live Orca status.
 
 ## Launch and hand off
 
@@ -115,6 +116,7 @@ Workers use `ask` for decisions and end their turn; they must not report `worker
 
 Reply to worker asks by message ID. If a reply is refused with `dispatch_inactive`, use Orca `send` to the original dispatch with the answer and associate the resulting follow-up with the same P ID; inspect the receipt. Do not claim the original task reopened. Never consume another agent's inbox or poll it.
 
+- **Unplanned team request:** relay the worker's roles and reason to the user. Reply to the worker only after the user decides, and record an approved team in `## Changes`.
 - **`comments on #N`:** find the P ID and lane. When the lane is settled and safe, start a linked follow-up on its proven reusable agent; have it read and address the review, then rebase and verify later PRs in stack order. If the lane is active, queue the request and coordinate a safe point first. Never post a review response or comment.
 - **`#N merged`:** verify the exact PR with `gh pr view` and require `MERGED`; never rely solely on the user's assertion for merge gates. Record the observed merge and SHA. Before releasing affected work, coordinate each affected lane at a safe point, fetch its current default, update its necessary branches and PR bases, and verify the result as described below. Resolve all corresponding `P<n> merged` gates only after the affected work is ready to use the merged code. Then schedule ready tasks.
 - **`G<n> done`:** accept the user's word for the human action, provided its recorded prerequisites are satisfied; resolve each matching gate. Do not check or assert a human deployment yourself.
@@ -135,4 +137,5 @@ Use Orca's recovery reference for failed or unknown starts, exact request replay
 - Follow repository `AGENTS.md`/`CLAUDE.md`, PR template, approved Rules and the PR's acceptance criteria. Read the absolute plan path and current Contracts at startup; report a missing or inconsistent plan to the supervisor before changing code. Implement only this PR's scope; do not merge, approve, post external comments/messages, change external labels, or decide a human gate.
 - Own one branch for this PR, based and targeted as described in Stacks. Check the previous PR's current state and base before branching. Update the lane's Orca card at meaningful checkpoints using `worktree set --worktree current`; keep it factual.
 - Validate the changed behavior and report concrete test/review evidence. Open the PR with the authorized base; report PR URL, head SHA, base branch/SHA, and CI evidence for that exact head. A PR is ready only when its requested checks are green for that SHA. Missing, pending, failed or unobservable checks are not green: ask the supervisor and end the turn, without `worker_done` until resolved. Do not silently waive missing CI.
+- Do not brainstorm or re-plan: the approved plan is the design. Use an agent team only if this PR's `Team` field names one or the supervisor relays the user's approval, and follow the `agent-teams` rule.
 - Send questions and discovered dependencies only to the supervisor with Orca `ask`, then end the turn; await the answer. Do not report done with an unanswered ask. Once the PR is open and CI is green, send the injected dispatch's `worker_done` with outcome succeeded and the PR URL, exact head SHA, base and evidence. Report failures honestly rather than settling as success.

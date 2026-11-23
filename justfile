@@ -238,8 +238,8 @@ test:
     done
 
     echo ""
-    echo "=== Rules (6) ==="
-    for r in python-style typescript-style pr-size-limit claude-tips incidental-finds intercom; do
+    echo "=== Rules (7) ==="
+    for r in python-style typescript-style pr-size-limit claude-tips incidental-finds intercom agent-teams; do
         [ -f "{{ harness_dir }}/rules/$r.md" ] && pass "$r" || fail "$r missing"
     done
 

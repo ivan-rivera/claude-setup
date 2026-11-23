@@ -8,7 +8,7 @@ Personal Claude Code harness for a solo full-stack developer exploring multiple 
 |-----------|----------|---------|
 | Global context | `harness/CLAUDE.md` | Identity, communication style, quality bar |
 | Settings | `harness/settings.json` | Sonnet 5 main model, Opus advisor, fallback chain, bash-guard hook, auto permission mode |
-| 6 rules | `harness/rules/` | python-style, typescript-style (path-scoped), pr-size-limit, claude-tips, incidental-finds, intercom (always-on) |
+| 7 rules | `harness/rules/` | python-style, typescript-style (path-scoped), pr-size-limit, claude-tips, incidental-finds, intercom, agent-teams (always-on) |
 | 10 agents | `harness/agents/` | frontend, backend, architect, security, qa, legal, finance, researcher, content-writer, data-generator |
 | 9 skills | `harness/skills/` | brainstorming, frontend-design, model-scout, skill-creator, plugin-creator, orca-phase, pr-briefing, agents-vault, ocr-review |
 | 4 commands | `harness/commands/` | `/intro` (orientation), `/onboard` (repo setup), `/briefing` (PR explainer), `/merge-prs` (batch PR merge) |
