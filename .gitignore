@@ -28,6 +28,7 @@ node_modules/
 harness/skills/synced/
 harness/skills/aside-browser/
 harness/skills/composio-cli
+harness/skills/hindsight-coding-agent/
 harness/skills/embedded-captions/
 harness/skills/faceless-explainer/
 harness/skills/figma/

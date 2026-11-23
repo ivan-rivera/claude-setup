@@ -63,6 +63,7 @@ If the user's natural-language request matches a command, skill, or keyword belo
 | `/orca-phase` | wants to plan/launch/supervise a multi-PR phase with Orca (parallel worktree lanes, stacked PRs, gates) |
 | `/pr-briefing` | wants a plain-language explainer of a PR, distinct from `/code-review` |
 | `/agents-vault` | starts/resumes a multi-session project, or produces durable context worth keeping across sessions |
+| `/hindsight-coding-agent` | wants to store, inspect, configure, or debug shared Hindsight memory |
 | `/ocr-review` | wants a second, independent model's critique of a diff/PR/branch |
 
 **Harness agents** (delegate by asking for the agent, e.g. "use the security agent"):
